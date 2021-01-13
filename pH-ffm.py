@@ -1,12 +1,9 @@
 catalog =\
-'/Users/leonardovanderlaat/Desktop/tornillos/characteristics/catalog.csv'
-time_column = 't1'
-variable = 'count'
-rule = '14H'
-# explosion = '2016-04-30 09:00:00+0000'
-# Tremor empezó antes de la emanación
-explosion = '2016-04-29 07:09:00+0000'
-title      = 'FFM-TOR-manual'
+'/Users/leonardovanderlaat/ph-turri.csv'
+time_column = 'date'
+variable = 'pH'
+explosion = '2010-01-04 16:57:00+0000'
+title      = 'pH'
 output_dir = '/Users/leonardovanderlaat/FFM/figures/esp/'
 
 import pandas as pd
@@ -17,7 +14,6 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.dates as md
 from matplotlib import rcParams
-rcParams['font.family'] = 'Arial'
 rcParams["scatter.marker"] = '.'
 from cycler import cycler
 rcParams['axes.prop_cycle'] = cycler('color', ['k', 'm', 'y', 'k'])
@@ -25,8 +21,8 @@ rcParams['axes.prop_cycle'] = cycler('color', ['k', 'm', 'y', 'k'])
 
 # Frequency label
 time_unit = {'D':'días', 'H':'horas', 'M':'minutos', 'S':'segundos'}
-if int(rule[:-1]) == 1:
-    time_unit[rule[-1]] = time_unit[rule[-1]][:-1]
+# if int(rule[:-1]) == 1:
+#     time_unit[rule[-1]] = time_unit[rule[-1]][:-1]
 
 # Get explosion time
 explosion = datetime.datetime.strptime(explosion, '%Y-%m-%d %H:%M:%S%z')
@@ -73,7 +69,6 @@ def get_rate(catalog, time_column, rule):
 
     return time, rate, inverse_rate
 
-time, rate, inverse_rate = get_rate(catalog, time_column, rule)
 
 def get_linregress(time, inverse_rate):
     """
@@ -99,8 +94,8 @@ def get_linregress(time, inverse_rate):
     # Real intercept
     intercept = new_x[0]*slope + intercept
 
-
     return new_x, new_y, intercept, slope, r_value, forecast_dt
+
 
 def get_forecast_error(forecast_dt, explosion, time_unit):
     """
@@ -134,6 +129,20 @@ def get_forecast_error(forecast_dt, explosion, time_unit):
 
     return diff, diff_str
 
+# time, rate, inverse_rate = get_rate(catalog, time_column, rule)
+
+df = pd.read_csv('../ph-turri.csv')
+df.index = pd.to_datetime(df.date)
+df = df['2004':'2007']
+
+time = np.asarray([md.date2num(datetime) for datetime in df.index])
+inverse_rate = df.pH
+
+df_hour_mean = df.pH.resample('12D').mean()
+# df_hour_mean = variable_filtered.resample('1D').mean()
+df_hour_mean = df_hour_mean.interpolate()
+rolling_mean = df_hour_mean.rolling(window=60).mean()
+
 new_x, new_y, intercept, slope, r_value, forecast_dt = get_linregress(time,
                                                                  inverse_rate)
 
@@ -149,8 +158,8 @@ fig.subplots_adjust(left=.12, bottom=.1, right=.88, top=.92, wspace=.06,
                     hspace=.2)
 
 ax = fig.add_subplot(121)
-ax.set_ylabel('Número inverso de eventos por {} {}'.format(rule[:-1],
-                                                       time_unit[rule[-1]]))
+# ax.set_ylabel('Número inverso de eventos por {} {}'.format(rule[:-1],
+#                                                        time_unit[rule[-1]]))
 ax.scatter(time, inverse_rate)
 ax.axvline(x=explosion, c='r')
 ax.axhline(y=0, c='k', linestyle='--')
@@ -160,21 +169,22 @@ ax.text(.5, .9, 'y = {}x + {}\n$R^2$ = {}'.format(round(slope, 3),
         transform=ax.transAxes, bbox=dict(facecolor='white'),
         verticalalignment='center', horizontalalignment='center')
 
-ax1 = fig.add_subplot(122)
-ax1.set_ylabel('Número de eventos por {} {}'.format(rule[:-1],time_unit[rule[-1]]),
-               labelpad=20, rotation=270)
-ax1.scatter(time, rate)
-ax1.plot(new_x[new_y>0], 1/new_y[new_y>0])
-ax1.axvline(x=explosion, c='r')
-ax1.yaxis.tick_right()
-ax1.yaxis.set_label_position('right')
-ax1.set_xlim(ax.get_xlim()[0], ax.get_xlim()[1])
+# ax.plot(rolling_mean.index,rolling_mean,c='r')
+# ax1 = fig.add_subplot(122)
+# # ax1.set_ylabel('Número de eventos por {} {}'.format(rule[:-1],time_unit[rule[-1]]),
+#                # labelpad=20, rotation=270)
+# ax1.scatter(time, rate)
+# ax1.plot(new_x[new_y>0], 1/new_y[new_y>0])
+# ax1.axvline(x=explosion, c='r')
+# ax1.yaxis.tick_right()
+# ax1.yaxis.set_label_position('right')
+# ax1.set_xlim(ax.get_xlim()[0], ax.get_xlim()[1])
 
-for ax in fig.get_axes():
-    ax.xaxis.set_major_locator(days)
-    ax.xaxis.set_major_formatter(dayFmt)
-    ax.xaxis.set_tick_params(labelsize=8)
-    ax.set_xlabel(explosion.year)
+# for ax in fig.get_axes():
+#     ax.xaxis.set_major_locator(days)
+#     ax.xaxis.set_major_formatter(dayFmt)
+#     ax.xaxis.set_tick_params(labelsize=8)
+#     ax.set_xlabel(explosion.year)
 
-fig.savefig(output_dir+title+'.pdf', format='pdf')
+# fig.savefig(output_dir+title+'.pdf', format='pdf')
 plt.show()

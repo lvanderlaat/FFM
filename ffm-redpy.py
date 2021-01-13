@@ -1,13 +1,18 @@
 catalog =\
-'/Users/leonardovanderlaat/Desktop/tornillos/characteristics/catalog.csv'
-time_column = 't1'
+'/Users/leonardovanderlaat/Desktop/tornillos/detection/REDPy-master/tornillos/filtered_catalog.txt'
 variable = 'count'
-rule = '14H'
+rule = '9H'
 # explosion = '2016-04-30 09:00:00+0000'
 # Tremor empezó antes de la emanación
 explosion = '2016-04-29 07:09:00+0000'
-title      = 'FFM-TOR-manual'
-output_dir = '/Users/leonardovanderlaat/FFM/figures/esp/'
+cluster    = 7
+title      = 'FFM-TOR-cluster_{}'.format(cluster)
+output_dir = '/Users/leonardovanderlaat/Desktop/tornillos/figuras/ffm/esp/'
+xlim_min       = '2016-03-25'
+xlim_max       = '2016-04-12'
+interval = 15
+vt_swarm_file =\
+'/Users/leonardovanderlaat/Desktop/tornillos/vt-swarms/vt-swarms.csv'
 
 import pandas as pd
 import numpy as np
@@ -31,7 +36,7 @@ if int(rule[:-1]) == 1:
 # Get explosion time
 explosion = datetime.datetime.strptime(explosion, '%Y-%m-%d %H:%M:%S%z')
 
-def get_rate(catalog, time_column, rule):
+def get_rate(catalog, rule):
     """
     Gets the rate of events per unit of time (defined by rule)
     Parameters
@@ -52,9 +57,10 @@ def get_rate(catalog, time_column, rule):
         1/rate
     """
     # Load catalog
-    df = pd.read_csv(catalog)
-    df.index = pd.to_datetime(df[time_column])
-
+    df = pd.read_csv(catalog, sep=' ', names=['cluster', 'utcdatetime'])
+    df = df[df.cluster == cluster]
+    df.index = pd.to_datetime(df.utcdatetime)
+    df = df.loc[xlim_min:xlim_max]
     # Resample
     df         = df.drop(df.columns[:-1], axis=1)
     df.columns = ['count']
@@ -73,7 +79,7 @@ def get_rate(catalog, time_column, rule):
 
     return time, rate, inverse_rate
 
-time, rate, inverse_rate = get_rate(catalog, time_column, rule)
+time, rate, inverse_rate = get_rate(catalog,  rule)
 
 def get_linregress(time, inverse_rate):
     """
@@ -140,12 +146,15 @@ new_x, new_y, intercept, slope, r_value, forecast_dt = get_linregress(time,
 diff, diff_str = get_forecast_error(forecast_dt, explosion, time_unit)
 
 # Figure
-days = md.DayLocator(interval=15)
+days = md.DayLocator(interval=interval)
 dayFmt = md.DateFormatter('%m-%d')
 
 fig = plt.figure(figsize=(6,4))
-fig.suptitle('Error del pronóstico: {}'.format(diff_str))
-fig.subplots_adjust(left=.12, bottom=.1, right=.88, top=.92, wspace=.06,
+fig.suptitle('Familia {} {} - {}\nError del pronóstico: {}'.format(
+            cluster, xlim_min, xlim_max, diff_str))
+# fig.suptitle('Familia {} \nError del pronóstico: {}'.format(
+#             cluster, diff_str))
+fig.subplots_adjust(left=.12, bottom=.1, right=.88, top=.88, wspace=.06,
                     hspace=.2)
 
 ax = fig.add_subplot(121)
@@ -160,6 +169,7 @@ ax.text(.5, .9, 'y = {}x + {}\n$R^2$ = {}'.format(round(slope, 3),
         transform=ax.transAxes, bbox=dict(facecolor='white'),
         verticalalignment='center', horizontalalignment='center')
 
+
 ax1 = fig.add_subplot(122)
 ax1.set_ylabel('Número de eventos por {} {}'.format(rule[:-1],time_unit[rule[-1]]),
                labelpad=20, rotation=270)
@@ -170,11 +180,14 @@ ax1.yaxis.tick_right()
 ax1.yaxis.set_label_position('right')
 ax1.set_xlim(ax.get_xlim()[0], ax.get_xlim()[1])
 
+df = pd.read_csv(vt_swarm_file, comment='/')
 for ax in fig.get_axes():
     ax.xaxis.set_major_locator(days)
     ax.xaxis.set_major_formatter(dayFmt)
     ax.xaxis.set_tick_params(labelsize=8)
     ax.set_xlabel(explosion.year)
+    for i, row in df.iterrows():
+        ax.axvline(row.starttime, c='blue')
 
 fig.savefig(output_dir+title+'.pdf', format='pdf')
 plt.show()
